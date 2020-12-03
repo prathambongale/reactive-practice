@@ -41,5 +41,8 @@ This project have two controllers. Below is the requiqment or what I am trying t
      
      Make sure you MongoDB instance is up and running before you start this project.
      
-     Run this project in spring local profile. 
+     Run this project in spring local profile. Once the application server is up. You can use below swagger UI to test the API's.
+     
+     http://localhost:8080/swagger-ui/#/
+     
      
