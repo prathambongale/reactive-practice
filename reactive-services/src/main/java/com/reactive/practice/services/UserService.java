@@ -31,8 +31,10 @@ public class UserService extends ResponseBuilder {
     public Mono<ResponseMessages> addUpdateUser(PersonalInfoRequest personalInfoRequest) {
         return sessionRepository.findBySid(personalInfoRequest.getId())
                 .log()
-                .flatMap(sessionInfo -> userRepository.findById(sessionInfo.getUid())
-                        .flatMap(user -> saveUserDetailsTwo(personalInfoRequest, personalInfoRequest.getId()))
+                .flatMap(sessionInfo ->
+                        this.userRepository.findById(sessionInfo.getUid())
+                                .flatMap(user -> saveUserDetailsTwo(personalInfoRequest, personalInfoRequest.getId()))
+                                .switchIfEmpty(saveUserDetailsTwo(personalInfoRequest, personalInfoRequest.getId()))
                 .switchIfEmpty(creatUser(personalInfoRequest)));
     }
 
