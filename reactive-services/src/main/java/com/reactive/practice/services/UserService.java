@@ -9,9 +9,13 @@ import com.reactive.practice.repository.SessionRepository;
 import com.reactive.practice.repository.UserRepository;
 import com.reactive.practice.repository.ValidatorRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.RandomStringUtils;
+import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
+
+import java.time.Instant;
 
 @Service
 @Slf4j
@@ -29,37 +33,52 @@ public class UserService extends ResponseBuilder {
     }
 
     public Mono<ResponseMessages> addUpdateUser(PersonalInfoRequest personalInfoRequest) {
-        return sessionRepository.findBySid(personalInfoRequest.getId())
+        return this.sessionRepository.findBySid(personalInfoRequest.getId())
                 .log()
-                .flatMap(sessionInfo ->
-                        this.userRepository.findById(sessionInfo.getUid())
-                                .flatMap(user -> saveUserDetailsTwo(personalInfoRequest, personalInfoRequest.getId()))
-                                .switchIfEmpty(saveUserDetailsTwo(personalInfoRequest, personalInfoRequest.getId()))
-                .switchIfEmpty(creatUser(personalInfoRequest)));
+                .flatMap(sessionInfo -> {
+                    log.info("SessionInfo Found for given Session ID...");
+                    return this.userRepository.findById(sessionInfo.getUid())
+                            .flatMap(user -> {
+                                log.info("Found User Info...");
+                                return saveUserDetailsTwo(personalInfoRequest, personalInfoRequest.getId(), "", user);})
+                            .switchIfEmpty(Mono.just(buildErrorResponse("User Not Found","40004")));
+                })
+                .switchIfEmpty(creatUser(personalInfoRequest))
+                .onErrorReturn(buildErrorResponse("Something Went Wrong","4000"));//);
     }
 
     public Mono<ResponseMessages> creatUser(PersonalInfoRequest personalInfoRequest) {
+        log.info("creatUser saveUserDetails...");
         SessionInfo sessionInfo = new SessionInfo();
-        String id = "";
+        sessionInfo.setCreated(Instant.now());
+        String id = ObjectId.get().toString();
+        String uid = RandomStringUtils.randomAlphanumeric(10);
+        sessionInfo.setSid(id);
+        sessionInfo.setUid(uid);
         return validatorRepository.findById(personalInfoRequest.getId())
                 .flatMap(validationInfo -> validatorRepository.delete(validationInfo))
                 .then(Mono.just(sessionInfo).flatMap(sessionInfo2 -> sessionRepository.save(sessionInfo)))
-                .then(saveUserDetails(personalInfoRequest, id));
+                .then(saveUserDetails(personalInfoRequest, id, uid));
     }
 
-    public Mono<ResponseMessages> saveUserDetails(PersonalInfoRequest personalInfoRequest, String id) {
+    public Mono<ResponseMessages> saveUserDetails(PersonalInfoRequest personalInfoRequest, String sid, String uid) {
+        log.info("Inside saveUserDetails...");
         return userRepository.findByIdNumber(personalInfoRequest.getPersonalInfo().getIdNumber())
                 .map(user1 -> buildErrorResponse("User already exists","4001"))
-                .switchIfEmpty(saveUserDetailsTwo(personalInfoRequest, id));
+                .switchIfEmpty(saveUserDetailsTwo(personalInfoRequest, sid, uid, new User()));
     }
 
-    public Mono<ResponseMessages> saveUserDetailsTwo(PersonalInfoRequest personalInfoRequest, String id) {
-        User user = new User();
-        user.setPersonalInfo(personalInfoRequest.getPersonalInfo());
-        if (personalInfoRequest.getPersonalInfo().getIdNumber().length() >= 5
-                && personalInfoRequest.getPersonalInfo().getIdNumber().length() <= 13) {
-            return Mono.just(buildErrorResponse("",""));
+    public Mono<ResponseMessages> saveUserDetailsTwo(PersonalInfoRequest personalInfoRequest, String sid, String uid, User user) {
+        log.info("Inside saveUserDetailsTwo...");
+        if (!uid.isEmpty()) {
+            user.setId(uid);
         }
-        return this.userRepository.save(user).thenReturn(buildSuccessResponse(id));
+        user.setPersonalInfo(personalInfoRequest.getPersonalInfo());
+        if (personalInfoRequest.getPersonalInfo().getIdNumber().length() <= 5
+                && personalInfoRequest.getPersonalInfo().getIdNumber().length() >= 13) {
+            return Mono.just(buildErrorResponse("ID Validation ","4002"));
+        }
+        //return this.userRepository.save(user).flatMap(user1 -> user1).map(r -> {};);
+        return Mono.just(user).flatMap(user1 -> userRepository.save(user1)).thenReturn(buildSuccessResponse(sid));
     }
 }
