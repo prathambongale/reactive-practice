@@ -55,8 +55,8 @@ public class UserService extends ResponseBuilder {
         String uid = RandomStringUtils.randomAlphanumeric(10);
         sessionInfo.setSid(id);
         sessionInfo.setUid(uid);
-        return validatorRepository.findById(personalInfoRequest.getId())
-                .flatMap(validationInfo -> validatorRepository.delete(validationInfo))
+        return validatorRepository.findById(personalInfoRequest.getValidationInfo().getId())
+                .flatMap(validatorRepository::delete)
                 .then(Mono.just(sessionInfo).flatMap(sessionInfo2 -> sessionRepository.save(sessionInfo)))
                 .then(saveUserDetails(personalInfoRequest, id, uid));
     }
@@ -75,7 +75,7 @@ public class UserService extends ResponseBuilder {
         }
         user.setPersonalInfo(personalInfoRequest.getPersonalInfo());
         if (personalInfoRequest.getPersonalInfo().getIdNumber().length() <= 5
-                && personalInfoRequest.getPersonalInfo().getIdNumber().length() >= 13) {
+                || personalInfoRequest.getPersonalInfo().getIdNumber().length() >= 13) {
             return Mono.just(buildErrorResponse("ID Validation ","4002"));
         }
         //return this.userRepository.save(user).flatMap(user1 -> user1).map(r -> {};);
