@@ -1,3 +1,6 @@
+server:
+  port: 9090
+
 spring:
   application:
     name: reactive-services
@@ -6,5 +9,16 @@ spring:
     mongodb:
       #host: localhost
       #port: 27017
+      uri: mongodb://localhost:27017/reactive-services
+      database: reactive-services
+
+---
+
+spring:
+  application:
+    name: reactive-services-dev
+  profiles: dev
+  data:
+    mongodb:
       uri: mongodb://localhost:27017/reactive-services
       database: reactive-services
